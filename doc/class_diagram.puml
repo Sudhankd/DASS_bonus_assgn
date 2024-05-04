@@ -1,0 +1,56 @@
+@startuml
+
+class Object {
++ object_id: Integer
++ object_type: String
++ select_object()
++ delete_object()
++ copy_object()
++ move_object()
+}
+
+class Line {
++ X1: Integer
++ Y1: Integer
++ X2: Integer
++ Y2: Integer
++ color: String
++ edit_line()
+}
+
+class Rectangle {
++ X1: Integer
++ Y1: Integer
++ X2: Integer
++ Y2: Integer
++ color: String
++ corner_style: String
++ edit_rectangle()
+}
+
+class Group {
++ objects_ids: List
++ select_group()
++ copy_group()
++ delete_group()
++ move_group()
++ ungroup()
++ ungroup_all()
+}
+
+interface Menu {
+    + draw_line()
+    + draw_rectangle()
+    + generate_file()
+    + save_file()
+    + open_file()
+    + Export_as_XML()
+}
+
+Object <|-- Line
+Object <|-- Rectangle
+Object <|-- Group
+Menu  <|.. Object: Uses
+Group *-- Object
+
+@enduml
