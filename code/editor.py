@@ -3,36 +3,55 @@ import tkinter as tk
 class Line:
     def __init__(self, canvas):
         self.canvas = canvas
-        self.object = None
+        self.drawing_object = None
+        self.draw_mode = True
 
     def start_draw(self, event):
-        self.object = self.canvas.create_line(event.x, event.y, event.x, event.y, fill="black", width=2)
+        if self.draw_mode:
+            self.drawing_object = self.canvas.create_line(event.x, event.y, event.x, event.y, fill="black", width=2)
+        
+        return self.drawing_object
 
     def draw(self, event):
-        self.canvas.coords(self.object, (self.canvas.coords(self.object)[0], self.canvas.coords(self.object)[1], event.x, event.y))
+        if self.draw_mode:
+            self.canvas.coords(self.drawing_object, (self.canvas.coords(self.drawing_object)[0], self.canvas.coords(self.drawing_object)[1], event.x, event.y))
 
     def end_draw(self, event):
+        self.draw_mode = False
         pass
+    
 
 class Rectangle:
     def __init__(self, canvas):
         self.canvas = canvas
-        self.object = None
+        self.drawing_object = None
+        self.draw_mode = True
 
     def start_draw(self, event):
-        self.object = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="black")
+        if self.draw_mode:
+            self.drawing_object = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline="black", width=2)
+        
+        return self.drawing_object
 
     def draw(self, event):
-        self.canvas.coords(self.object, (self.canvas.coords(self.object)[0], self.canvas.coords(self.object)[1], event.x, event.y))
+        if self.draw_mode:
+            self.canvas.coords(self.drawing_object, (self.canvas.coords(self.drawing_object)[0], self.canvas.coords(self.drawing_object)[1], event.x, event.y))
 
     def end_draw(self, event):
+        self.draw_mode = False
         pass
+
+    
+
 
 class DrawingApp:
     def __init__(self, master):
         self.master = master
         self.canvas = tk.Canvas(master, width=400, height=400)
         self.canvas.pack()
+
+        self.object_list = []
+        
 
         self.line_button = tk.Button(master, text="Line", command=self.set_line_mode)
         self.line_button.pack(side="left")
@@ -42,9 +61,16 @@ class DrawingApp:
 
         self.drawing_tool = None
 
+        self.previous_object = None
+
         self.canvas.bind("<Button-1>", self.start_draw)
         self.canvas.bind("<B1-Motion>", self.draw)
         self.canvas.bind("<ButtonRelease-1>", self.end_draw)
+
+        # if self.canvas.drawing_tool:
+        #     self.canvas.tag_bind(self.drawing_tool, "<Button-1>", self.highlight_on_click)  # Highlight when clicked
+        #     self.canvas.tag_bind(self.drawing_tool, "<Leave>", self.remove_highlight)       # Remove highlight when mouse leaves rectangle
+
 
     def set_line_mode(self):
         self.drawing_tool = Line(self.canvas)
@@ -54,7 +80,8 @@ class DrawingApp:
 
     def start_draw(self, event):
         if self.drawing_tool:
-            self.drawing_tool.start_draw(event)
+            object_drawn = self.drawing_tool.start_draw(event)
+            self.object_list.append(object_drawn)
 
     def draw(self, event):
         if self.drawing_tool:
@@ -64,6 +91,18 @@ class DrawingApp:
         if self.drawing_tool:
             self.drawing_tool.end_draw(event)
 
+    
+    # def highlight_on_click(self, event):
+    #     nearest_object = self.canvas.find_closest(event.x, event.y)
+    #     if nearest_object:
+
+    #     self.canvas.itemconfig(self.drawing_object, fill="yellow")  # Change fill color to yellow when clicked
+
+    def remove_highlight(self, event):
+        self.canvas.itemconfig(self.drawing_object, fill="blue")    # Change fill color back to blue when not clicked
+
+
+        
 def main():
     root = tk.Tk()
     app = DrawingApp(root)
@@ -99,7 +138,7 @@ if __name__ == "__main__":
 #         self.rect_button = tk.Button(master, text="Rectangle", command=self.set_rect_mode)
 #         self.rect_button.pack(side="left")
 
-#         self.object = None
+#         self.drawing_object = None
 #         self.draw_mode = False
 
 #         self.canvas.bind("<Button-1>", self.start_draw)
@@ -115,32 +154,32 @@ if __name__ == "__main__":
 #     def start_draw(self, event):
 #         if self.draw_mode:
 #             if self.draw_mode == "line":
-#                 self.object = MyObject(event.x, event.y, event.x, event.y)
+#                 self.drawing_object = MyObject(event.x, event.y, event.x, event.y)
 #             elif self.draw_mode == "rect":
-#                 self.object = MyObject(event.x, event.y, event.x, event.y)
-#                 self.rect_id = self.canvas.create_rectangle(self.object.x1, self.object.y1, self.object.x2, self.object.y2, outline="black")
+#                 self.drawing_object = MyObject(event.x, event.y, event.x, event.y)
+#                 self.rect_id = self.canvas.create_rectangle(self.drawing_object.x1, self.drawing_object.y1, self.drawing_object.x2, self.drawing_object.y2, outline="black")
 
 #     def draw(self, event):
-#         if self.draw_mode and self.object:
-#             self.object.x2 = event.x
-#             self.object.y2 = event.y
+#         if self.draw_mode and self.drawing_object:
+#             self.drawing_object.x2 = event.x
+#             self.drawing_object.y2 = event.y
 #             if self.draw_mode == "line":
 #                 self.canvas.delete("current_line")
-#                 self.canvas.create_line(self.object.x1, self.object.y1, self.object.x2, self.object.y2, fill="black", width=2, tags="current_line")
+#                 self.canvas.create_line(self.drawing_object.x1, self.drawing_object.y1, self.drawing_object.x2, self.drawing_object.y2, fill="black", width=2, tags="current_line")
 #             elif self.draw_mode == "rect":
-#                 self.canvas.coords(self.rect_id, self.object.x1, self.object.y1, self.object.x2, self.object.y2)
+#                 self.canvas.coords(self.rect_id, self.drawing_object.x1, self.drawing_object.y1, self.drawing_object.x2, self.drawing_object.y2)
 
 #     def end_draw(self, event):
-#         if self.draw_mode and self.object:
-#             self.object.x2 = event.x
-#             self.object.y2 = event.y
+#         if self.draw_mode and self.drawing_object:
+#             self.drawing_object.x2 = event.x
+#             self.drawing_object.y2 = event.y
 #             if self.draw_mode == "line":
 #                 self.canvas.delete("current_line")
-#                 self.canvas.create_line(self.object.x1, self.object.y1, self.object.x2, self.object.y2, fill="black", width=2)
+#                 self.canvas.create_line(self.drawing_object.x1, self.drawing_object.y1, self.drawing_object.x2, self.drawing_object.y2, fill="black", width=2)
 #             elif self.draw_mode == "rect":
 #                 pass
 #             self.draw_mode = False
-#             self.object = None
+#             self.drawing_object = None
 
 # def main():
 #     root = tk.Tk()
