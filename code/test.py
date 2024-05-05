@@ -6,6 +6,7 @@ class Line:
         self.drawing_object = None
         self.draw_mode = True
         self.type = 'Line'
+        self.color = 'Black'
 
     def start_draw(self, event):
         if self.draw_mode:
@@ -26,6 +27,7 @@ class Rectangle:
     def __init__(self, canvas):
         self.canvas = canvas
         self.type = 'Rectangle'
+        self.color = 'Black'
         self.drawing_object = None
         self.draw_mode = True
 
@@ -42,9 +44,6 @@ class Rectangle:
     def end_draw(self, event):
         self.draw_mode = False
         pass
-
-    
-
 
 class DrawingApp:
     def __init__(self, master):
@@ -74,9 +73,11 @@ class DrawingApp:
         self.copied_object_coords = None
         self.copied_object_type = None
         self.selected_object_type = None
+        self.selected_object_color = None
 
         self.canvas.bind("<Button-1>", self.start_draw)
         self.canvas.bind("<B1-Motion>", self.draw)
+        self.canvas.bind("<Button-3>",self.check_for_dialog)
         self.canvas.bind("<ButtonRelease-1>", self.end_draw)
         self.master.bind("<BackSpace>", self.delete_object)
         self.master.bind("<Control-c>", self.copy_object)
@@ -87,6 +88,88 @@ class DrawingApp:
         #     self.canvas.tag_bind(self.drawing_tool, "<Button-1>", self.highlight_on_click)  # Highlight when clicked
         #     self.canvas.tag_bind(self.drawing_tool, "<Leave>", self.remove_highlight)       # Remove highlight when mouse leaves rectangle
 
+    def check_for_dialog(self,event):
+        if not self.drawing_tool:
+
+            if self.selected_object:
+                self.canvas.itemconfig(self.selected_object, width=2)
+            for obj,type in self.object_types.items():
+                bbox = self.canvas.bbox(obj)
+                if len(bbox) and bbox[0] <= event.x <= bbox[2] and bbox[1] <= event.y <= bbox[3]:
+                    print("Object exists at this location.")
+                    self.selected_object = obj
+                    self.selected_object_type = type
+                    self.show_context_menu(event)
+                    return
+                            
+        print("No object exists at this location")
+
+    def change_color(self, color):
+        self.selected_object_color = color
+        if self.selected_object_type == 'Rectangle':
+            self.canvas.itemconfig(self.selected_object, outline=color)
+        elif self.selected_object_type == 'Line':
+            self.canvas.itemconfig(self.selected_object, fill=color)
+
+    def change_corner_style(self,sorner_style):
+        radius = 7
+        if sorner_style == "rounded":
+            try:
+                x1,y1,x2,y2 = self.canvas.coords(self.selected_object)
+                print(x1,y1)
+                self.delete_object()
+                x_left = x1
+                x_right = x2
+                y_top = y1
+                y_bottom = y2
+
+                # Coordinates of the control points for rounded corners
+                control_points = [
+                    (x_left + radius, y_top),
+                    (x_left, y_top + radius),
+                    (x_left, y_bottom - radius),
+                    (x_left + radius, y_bottom),
+                    (x_right - radius, y_bottom),
+                    (x_right, y_bottom - radius),
+                    (x_right, y_top + radius),
+                    (x_right - radius, y_top)
+                ]
+
+                # Draw the rounded rectangle
+                new_object = self.canvas.create_polygon(control_points, outline=self.selected_object_color, fill='', width='2',smooth=True)
+                self.object_types[new_object] = 'Rectangle'
+            except:
+                print("Corners already Rounded")
+        else:
+            try:
+                x = self.canvas.coords(self.selected_object)[0] - radius
+                y = self.canvas.coords(self.selected_object)[1]
+                x1 = self.canvas.coords(self.selected_object)[8] + radius
+                y1 = self.canvas.coords(self.selected_object)[9]
+                self.delete_object()
+                new_object = self.canvas.create_rectangle(x, y, x1, y1, outline=self.selected_object_color, fill='', width='2')
+                self.object_types[new_object] = 'Rectangle'
+            except:
+                print("Corners already Square")
+
+
+    def show_context_menu(self, event):
+        context_menu = tk.Menu(self.master, tearoff=0)
+        color_menu = tk.Menu(context_menu, tearoff=0)
+        color_menu.add_command(label="Black", command=lambda: self.change_color("black"))
+        color_menu.add_command(label="Red", command=lambda: self.change_color("red"))
+        color_menu.add_command(label="Blue", command=lambda: self.change_color("blue"))
+        color_menu.add_command(label="Green", command=lambda: self.change_color("green"))
+
+        context_menu.add_cascade(label="Color", menu=color_menu)
+
+        if self.selected_object_type == "Rectangle":
+            corner_menu = tk.Menu(context_menu, tearoff=0)
+            corner_menu.add_command(label="Square", command=lambda: self.change_corner_style("square"))
+            corner_menu.add_command(label="Rounded", command=lambda: self.change_corner_style("rounded"))
+            context_menu.add_cascade(label="Corner Style", menu=corner_menu)
+
+        context_menu.post(event.x_root, event.y_root)
 
     def set_line_mode(self):
         self.drawing_tool = Line(self.canvas)
@@ -173,6 +256,7 @@ class DrawingApp:
                 print("Object exists at this location.")
                 self.selected_object = obj
                 self.selected_object_type = type
+                self.selected_object_color = "black"
                 self.canvas.itemconfig(self.selected_object, width=4)  # Change fill color to yellow when clicked
                 return
     # If no object was found at the clicked coordinates
