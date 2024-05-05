@@ -1,0 +1,3 @@
+lower-right = ET.SubElement(line,"lower-right")
+                        x2 = ET.SubElement(lower-right,"x")
+                        y2 = ET.SubElement(lower-right,"y")

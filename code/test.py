@@ -1,4 +1,43 @@
 import tkinter as tk
+import xml.etree.ElementTree as ET
+import math
+
+
+def point_to_line_distance(px, py, x1, y1, x2, y2):
+    # Calculate line segment vector
+    line_vec = (x2 - x1, y2 - y1)
+    # Calculate point-to-start vector
+    point_vec = (px - x1, py - y1)
+    # Calculate dot product
+    dot_product = point_vec[0] * line_vec[0] + point_vec[1] * line_vec[1]
+    line_len_sq = line_vec[0] ** 2 + line_vec[1] ** 2
+    # Calculate the projection factor
+    t = max(0, min(1, dot_product / line_len_sq))
+    # Find the projection point on the line segment
+    projection = (x1 + t * line_vec[0], y1 + t * line_vec[1])
+    # Calculate the distance from the point to the projection
+    distance = math.sqrt((projection[0] - px) ** 2 + (projection[1] - py) ** 2)
+    return distance
+
+def point_to_rectangle_distance(px, py, x1, y1, x2, y2):
+    # The rectangle's sides
+    left = x1
+    right = x2
+    top = y1
+    bottom = y2
+
+    # Distances to each side of the rectangle
+    distances = [
+        abs(px - left),  # Left side
+        abs(px - right),  # Right side
+        abs(py - top),  # Top side
+        abs(py - bottom)  # Bottom side
+    ]
+
+    # Return the minimum distance
+    return min(distances)
+
+
 
 class Line:
     def __init__(self, canvas):
@@ -66,6 +105,9 @@ class DrawingApp:
         self.open_button = tk.Button(master,text="open",command=self.set_open_mode)
         self.open_button.pack(side="left")
 
+        self.export_button = tk.Button(master,text="export as xml",command=self.set_export_mode)
+        self.export_button.pack(side="left")
+
 
         self.drawing_tool = None
 
@@ -100,11 +142,12 @@ class DrawingApp:
             for obj,type in self.object_types.items():
                 cordinates = self.canvas.coords(obj)
                 cordinates_str = " ".join(str(x) for x in cordinates)
-                coloor = self.canvas.itemcget(obj,"fill")
                 if type == "Line":
                     textt = f"line "
+                    coloor = self.canvas.itemcget(obj,"fill")
                 elif type == "Rectangle":
                     textt = f"rect "
+                    coloor = self.canvas.itemcget(obj,"outline")
                 textt += f"{cordinates_str} {coloor}"
 
                 if textt:
@@ -136,6 +179,57 @@ class DrawingApp:
         except Exception as e:
             print("error occured!")
             
+    def set_export_mode(self):
+        print("hrll")
+        textt = ""
+        root = ET.Element('root')
+        for obj,type in self.object_types.items():
+            if type == "Line":
+                line = ET.SubElement(root,"line")
+                # textt += "<line>\n"
+                cordinates = self.canvas.coords(obj)
+                coloor = self.canvas.itemcget(obj,"fill")
+                for i in range(2):
+                    if i == 0:
+                        begin = ET.SubElement(line,"begin")
+                        x1 = ET.SubElement(begin,"x")
+                        y1 = ET.SubElement(begin,"y")
+                        x1.text = str(cordinates[i])
+                        y1.text = str(cordinates[i+1])
+                    else:
+                        end = ET.SubElement(line,"end")
+                        x2 = ET.SubElement(end,"x")
+                        y2 = ET.SubElement(end,"y")
+                        x2.text = str(cordinates[i+1])
+                        y2.text = str(cordinates[i+2])
+                colr = ET.SubElement(line,"color")
+                colr.text = coloor
+            elif type == "Rectangle":
+                coloor = self.canvas.itemcget(obj,"outline")
+                rectangle = ET.SubElement(root,"rectangle")
+                # textt += "<line>\n"
+                cordinates = self.canvas.coords(obj)
+                coloor = self.canvas.itemcget(obj,"fill")
+                for i in range(2):
+                    if i == 0:
+                        upper_left = ET.SubElement(rectangle,"upper-left")
+                        x1 = ET.SubElement(upper_left,"x")
+                        y1 = ET.SubElement(upper_left,"y")
+                        x1.text = str(cordinates[i])
+                        y1.text = str(cordinates[i+1])
+                    else:
+                        lower_right = ET.SubElement(rectangle,"lower-right")
+                        x2 = ET.SubElement(lower_right,"x")
+                        y2 = ET.SubElement(lower_right,"y")
+                        x2.text = str(cordinates[i+1])
+                        y2.text = str(cordinates[i+2])
+                colr = ET.SubElement(rectangle,"color")
+                colr.text = coloor
+
+        tree = ET.ElementTree(root)
+        tree.write('draw.xml')
+        print(textt)
+            
 
 
     def start_draw(self, event):
@@ -163,22 +257,40 @@ class DrawingApp:
             self.canvas.itemconfig(self.selected_object, width=2)
         
         
-        for obj,type in self.object_types.items():
-        # Get the bounding box of the object
-            print(type)
-            bbox = self.canvas.bbox(obj)
-            print(bbox)
-        # Check if the clicked coordinates are within the bounding box
-            if len(bbox) and bbox[0] <= event.x <= bbox[2] and bbox[1] <= event.y <= bbox[3]:
-                print("Object exists at this location.")
-                self.selected_object = obj
-                self.selected_object_type = type
-                self.canvas.itemconfig(self.selected_object, width=4)  # Change fill color to yellow when clicked
-                return
-    # If no object was found at the clicked coordinates
+        closest_object = None
+        threshold = 5
+        closest_distance = float("inf")  # Start with a large distance
         
-        print("No object exists at this location.")
-
+        # Check each object for the shortest distance to the event point
+        for obj, obj_type in self.object_types.items():
+            bbox = self.canvas.bbox(obj)
+            
+            if obj_type == "Rectangle":
+                if bbox:
+                    # Calculate the distance from the point to the rectangle's sides
+                    distance = point_to_rectangle_distance(
+                        event.x, event.y, bbox[0], bbox[1], bbox[2], bbox[3]
+                    )
+                    if distance < closest_distance:
+                        closest_object = obj
+                        closest_distance = distance
+            
+            elif obj_type == "Line":
+                if bbox:
+                    # Calculate the distance from the point to the line segment
+                    distance = point_to_line_distance(
+                        event.x, event.y, bbox[0], bbox[1], bbox[2], bbox[3]
+                    )
+                    if distance < closest_distance:
+                        closest_object = obj
+                        closest_distance = distance
+        
+        # Highlight the closest object
+        if closest_object is not None and closest_distance < threshold:
+            self.canvas.itemconfig(closest_object, width=4)  # Highlight the object
+            self.selected_object = closest_object
+        else:
+            print("No object found at this location.")
     def remove_highlight(self, event):
         self.canvas.itemconfig(self.drawing_object, fill="blue")    # Change fill color back to blue when not clicked
         
@@ -212,6 +324,7 @@ class DrawingApp:
             self.object_types.pop(self.selected_object)
             self.selected_object = None
             self.selected_object_type = None
+
 
     # def write_file():
 
