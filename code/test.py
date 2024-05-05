@@ -52,12 +52,21 @@ class DrawingApp:
         self.canvas.pack()
         
         self.object_types = {}
+        self.group_list = []
+        self.group_list_temp = []
+        self.groups_involved_temp = []
         
         self.line_button = tk.Button(master, text="Line", command=self.set_line_mode)
         self.line_button.pack(side="left")
 
         self.rect_button = tk.Button(master, text="Rectangle", command=self.set_rect_mode)
         self.rect_button.pack(side="left")
+
+        self.group_button = tk.Button(master, text="Group", command=self.set_group_mode)
+        self.group_button.pack(side="left")
+
+        self.done_button = tk.Button(master, text="Done", command=self.set_done_mode)
+        self.done_button.pack(side="left")
 
         self.save_button = tk.Button(master,text="save",command=self.set_save_mode)
         self.save_button.pack(side="left")
@@ -67,6 +76,7 @@ class DrawingApp:
 
 
         self.drawing_tool = None
+        self.grouping_mode = False
 
         self.previous_object = None
         self.selected_object = None
@@ -177,6 +187,24 @@ class DrawingApp:
     def set_rect_mode(self):
         self.drawing_tool = Rectangle(self.canvas)
 
+    def set_group_mode(self):
+        if self.selected_object and self.is_object_in_group(self.selected_object) == False:
+            self.canvas.itemconfig(self.selected_object, width=2)
+            self.selected_object = None
+        self.grouping_mode = True
+
+    def set_done_mode(self):
+        self.grouping_mode = False
+        
+        self.group_list.append({
+            "objects":self.group_list_temp,
+            "groups":self.groups_involved_temp                    
+            })
+        self.groups_involved_temp = []
+        self.group_list_temp = []
+        print(self.group_list)
+        self.remove_highlight()
+
     def set_save_mode(self):
         try:
             f = open("Drawing.txt","w")
@@ -227,6 +255,8 @@ class DrawingApp:
             object_drawn = self.drawing_tool.start_draw(event)
             print(object_drawn)
             self.object_types[object_drawn] = self.drawing_tool.type
+        elif self.grouping_mode:
+            self.group_objects(event)
         else:
             print("hi")
             self.highlight_on_click(event)
@@ -240,9 +270,14 @@ class DrawingApp:
             self.drawing_tool.end_draw(event)
             self.drawing_tool = None
 
+    def is_object_in_group(self, obj):
+        for sub_list in self.group_list:
+            if obj in sub_list:
+                return True
+        return False
     
     def highlight_on_click(self, event):
-        if self.selected_object:
+        if self.selected_object and self.is_object_in_group(self.selected_object) == False:
             self.canvas.itemconfig(self.selected_object, width=2)
         
         
@@ -253,18 +288,55 @@ class DrawingApp:
             print(bbox)
         # Check if the clicked coordinates are within the bounding box
             if len(bbox) and bbox[0] <= event.x <= bbox[2] and bbox[1] <= event.y <= bbox[3]:
+                for i in range(len(self.group_list) - 1, -1, -1):
+                    if obj in self.group_list[i]["objects"]:
+                        # self.groups_involved_temp = list(set(self.groups_involved_temp) | set([i]))
+                        # self.group_list_temp = list(set(self.group_list_temp) | set(self.group_list[i]["objects"]))
+                        self.highlight_all_objects_group(self.group_list[i]["objects"])
+                        break
                 print("Object exists at this location.")
                 self.selected_object = obj
                 self.selected_object_type = type
                 self.selected_object_color = "black"
                 self.canvas.itemconfig(self.selected_object, width=4)  # Change fill color to yellow when clicked
-                return
+                # return
     # If no object was found at the clicked coordinates
         
         print("No object exists at this location.")
 
-    def remove_highlight(self, event):
-        self.canvas.itemconfig(self.drawing_object, fill="blue")    # Change fill color back to blue when not clicked
+      # Change fill color back to blue when not clicked
+    
+    def remove_highlight(self):
+        for obj, _ in self.object_types.items():
+            self.canvas.itemconfig(obj, width=2)
+    
+    def highlight_all_objects_group(self, group):
+        for obj in group:
+            self.canvas.itemconfig(obj, width=4)
+
+    def group_objects(self, event):
+        if self.grouping_mode:
+            for obj,type in self.object_types.items():
+        # Get the bounding box of the object
+                print(type)
+                bbox = self.canvas.bbox(obj)
+                print(bbox)
+            # Check if the clicked coordinates are within the bounding box
+                if len(bbox) and bbox[0] <= event.x <= bbox[2] and bbox[1] <= event.y <= bbox[3]:
+                    print("Object found.")
+                    for i in range(len(self.group_list) - 1, -1, -1):
+                        if obj in self.group_list[i]["objects"]:
+                            self.groups_involved_temp = list(set(self.groups_involved_temp) | set([i]))
+                            self.group_list_temp = list(set(self.group_list_temp) | set(self.group_list[i]["objects"]))
+                            self.highlight_all_objects_group(self.group_list_temp)
+                            break
+                    self.selected_object = obj
+                    self.selected_object_type = type
+                    self.canvas.itemconfig(obj, width=4)  # Change fill color to yellow when clicked
+                    if obj not in self.group_list_temp:
+                        self.group_list_temp.append(obj) 
+                    # return
+
         
     def copy_object(self, event=None):
         print("inCopy")
