@@ -38,10 +38,12 @@ class Group {
 + ungroup_all()
 }
 
-interface Menu {
+class Menu {
+    + position: String
     + draw_line()
     + draw_rectangle()
     + generate_file()
+    + create_group()
     + save_file()
     + open_file()
     + Export_as_XML()
@@ -50,7 +52,7 @@ interface Menu {
 Object <|-- Line
 Object <|-- Rectangle
 Object <|-- Group
-Menu  <|.. Object: Uses
+Menu  -- Object: Uses
 Group *-- Object
 
 @enduml
